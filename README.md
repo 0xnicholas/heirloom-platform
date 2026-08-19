@@ -17,7 +17,7 @@ Self-hostable ontology platform: define your domain as code with a **TypeScript 
 Milestone plan (scenario-anchored, spec 80 S0–S11):
 
 - [x] **M1** — `@heirloom/dsl`: builders, registry, definition JSON materialization + frozen example ontology fixture
-- [ ] **M2** — engine core: engine-schema migrations, ontology push pipeline (diff → 3-tier classification → transactional DDL → revision)
+- [x] **M2** — engine core: system-schema migrations (advisory lock + migrate-only), push pipeline (diff → 3-tier classification → transactional DDL → revision/no-op) — S1/S10 green on real PG
 - [ ] **M3** — read path: query-package compilation (filter/sort/keyset/include/count)
 - [ ] **M4** — actions & functions: live-transaction executor, five edit ops, audit
 - [ ] **M5** — security: subjects/groups/PATs, read grants + predicate compilation, silent narrowing
