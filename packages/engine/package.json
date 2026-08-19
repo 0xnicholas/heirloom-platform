@@ -1,0 +1,33 @@
+{
+  "name": "@heirloom/engine",
+  "version": "0.1.0",
+  "description": "Heirloom engine — compiler + transaction coordinator on a single Postgres (spec 40/60): system-schema migrations, ontology push pipeline, DDL generation",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@heirloom/dsl": "workspace:*",
+    "kysely": "^0.28.7",
+    "pg": "^8.16.3",
+    "uuidv7": "^1.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@types/pg": "^8.15.6",
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4",
+    "@heirloom/example-ontology": "workspace:*"
+  }
+}

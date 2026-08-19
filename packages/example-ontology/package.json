@@ -7,7 +7,10 @@
   "main": "./dist/ontology.js",
   "types": "./dist/ontology.d.ts",
   "exports": {
-    ".": { "types": "./dist/ontology.d.ts", "import": "./ontology.js" }
+    ".": {
+      "types": "./dist/ontology.d.ts",
+      "import": "./dist/ontology.js"
+    }
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
