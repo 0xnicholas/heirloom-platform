@@ -1,0 +1,22 @@
+{
+  "name": "@heirloom/example-ontology",
+  "version": "0.1.0",
+  "description": "Frozen HR/project example ontology (spec 80 §示例本体, frozen from #12 prototype) — DSL fixture and e2e S0–S11 scenario ontology",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "./dist/ontology.js",
+  "types": "./dist/ontology.d.ts",
+  "exports": {
+    ".": { "types": "./dist/ontology.d.ts", "import": "./ontology.js" }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@heirloom/dsl": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.2"
+  }
+}
