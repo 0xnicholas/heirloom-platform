@@ -20,7 +20,7 @@ Milestone plan (scenario-anchored, spec 80 S0–S11):
 - [x] **M2** — engine core: system-schema migrations (advisory lock + migrate-only), push pipeline (diff → 3-tier classification → transactional DDL → revision/no-op) — S1/S10 green on real PG
 - [x] **M3** — read path: query-package compiler + executor (filter ops incl. one-hop link EXISTS, ≤3-key sort w/ PG null-order defaults, keyset cursor over mixed dirs/nulls, include ≤2 hops, count) — S9 green on real PG, predicate-injection seams ready for M5
 - [x] **M4** — actions & functions: live-transaction executor (snapshot + sync ctx model, UUIDv7 pre-gen, RYW, link-as-move, If-Match optimistic lock) + write channel (flush dependency-ordered, constraint→ValidationFailed mapping, ingest-ready) + audit rows — S4/S5/S7/S8-delete green on real PG
-- [ ] **M5** — security: subjects/groups/PATs, read grants + predicate compilation, silent narrowing
+- [x] **M5** — security: PAT lifecycle (hlk_, sha256-at-rest, instant revoke), admin bootstrap + isAdmin short-circuit, read grants (type-level + predicate w/ $ctx constants, OR-union, DENY-ALL silent narrowing via M3/M4 injection points), action whitelist, security log — S3/S6 green
 - [ ] **M6** — ingest & deployment: admin ingest, import batches, compose, migrate-only
 - [ ] **M7** — closeout: evolution matrix full coverage, OpenAPI export, S0–S11 e2e
 

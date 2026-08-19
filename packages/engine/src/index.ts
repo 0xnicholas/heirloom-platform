@@ -47,3 +47,29 @@ export {
   UnknownParamError,
 } from "./execute.js";
 export type { InvokeActor, InvokeOptions, InvokeActionResult } from "./execute.js";
+export {
+  AuthenticationError,
+  WhitelistDeniedError,
+  AdminForbiddenError,
+  GrantValidationError,
+  issueToken,
+  revokeToken,
+  listTokens,
+  authenticate,
+  bootstrapAdmin,
+  createSubject,
+  createGroup,
+  addGroupMember,
+  removeGroupMember,
+  grantRead,
+  revokeReadGrant,
+  grantAction,
+  revokeActionGrant,
+  assembleReadPredicates,
+  checkActionAllowed,
+  assertAdmin,
+  logSecurityEvent,
+  resolveCtxConstants,
+  DENY_ALL,
+} from "./security.js";
+export type { AuthContext, ReadGrantInput, ActionGrantInput, SecurityEvent, SubjectHandle } from "./security.js";
