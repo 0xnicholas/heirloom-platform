@@ -43,8 +43,9 @@ export type Op = SqlOp | ProbeOp;
 
 const sysCols = [
   `id uuid PRIMARY KEY`,
-  `created_at timestamptz NOT NULL DEFAULT now()`,
-  `updated_at timestamptz NOT NULL DEFAULT now()`,
+  // 毫秒精度：updated_at 供 If-Match / 水位线往返（decodeRow ISO 毫秒序列化无损回传）
+  `created_at timestamptz(3) NOT NULL DEFAULT now()`,
+  `updated_at timestamptz(3) NOT NULL DEFAULT now()`,
 ];
 
 function pgType(prop: PropertyDef): { type: string; checks: string[] } {
@@ -198,9 +199,12 @@ export function addLinkOps(link: LinkDef, declarer: string): Op[] {
   }
   const table = tableName(phys.fkTable);
   const col = phys.fkColumnSnake;
+  // 删除语义（spec 40 §4）：required 链接 RESTRICT（阻删）；optional SET NULL（自动摘链）。
+  // one-to-many 的 FK 列恒可空（required 声明在声明方=「每 1 侧必有 N 侧」由写通道检查）→ SET NULL。
+  const onDelete = phys.required ? "ON DELETE RESTRICT" : "ON DELETE SET NULL";
   const ops: Op[] = [
     { type: "sql", sql: `ALTER TABLE ${objectTable(phys.fkTable)} ADD COLUMN ${quoteIdent(col)} uuid`, description: `${phys.fkTable}.${col} FK 列` },
-    { type: "sql", sql: `ALTER TABLE ${objectTable(phys.fkTable)} ADD CONSTRAINT ${fkName(table, col)} FOREIGN KEY (${quoteIdent(col)}) REFERENCES ${objectTable(phys.references)} (${quoteIdent("id")})`, description: `FK ${table}.${col} → ${phys.references}` },
+    { type: "sql", sql: `ALTER TABLE ${objectTable(phys.fkTable)} ADD CONSTRAINT ${fkName(table, col)} FOREIGN KEY (${quoteIdent(col)}) REFERENCES ${objectTable(phys.references)} (${quoteIdent("id")}) ${onDelete}`, description: `FK ${table}.${col} → ${phys.references}（${onDelete}）` },
   ];
   if (phys.unique) {
     ops.push({ type: "sql", sql: `ALTER TABLE ${objectTable(phys.fkTable)} ADD CONSTRAINT ${uniqueName(table, col)} UNIQUE (${quoteIdent(col)})`, description: `1:1 UNIQUE ${table}.${col}` });

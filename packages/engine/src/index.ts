@@ -32,3 +32,18 @@ export type {
   CompileQueryOptions,
   SqlExec,
 } from "./query.js";
+export { WriteChannel, validatePropValue, constraintToValidationFailed } from "./write.js";
+export type { EditRecord, LinkPhysical, ResolvedLink } from "./write.js";
+export {
+  PreconditionFailedError,
+  UniqueConflictError,
+  LinkRestrictedError,
+} from "./write.js";
+export {
+  invokeAction,
+  invokeFunction,
+  buildExecute,
+  UnknownCallableError,
+  UnknownParamError,
+} from "./execute.js";
+export type { InvokeActor, InvokeOptions, InvokeActionResult } from "./execute.js";
