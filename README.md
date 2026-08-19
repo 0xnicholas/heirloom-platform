@@ -18,7 +18,7 @@ Milestone plan (scenario-anchored, spec 80 S0–S11):
 
 - [x] **M1** — `@heirloom/dsl`: builders, registry, definition JSON materialization + frozen example ontology fixture
 - [x] **M2** — engine core: system-schema migrations (advisory lock + migrate-only), push pipeline (diff → 3-tier classification → transactional DDL → revision/no-op) — S1/S10 green on real PG
-- [ ] **M3** — read path: query-package compilation (filter/sort/keyset/include/count)
+- [x] **M3** — read path: query-package compiler + executor (filter ops incl. one-hop link EXISTS, ≤3-key sort w/ PG null-order defaults, keyset cursor over mixed dirs/nulls, include ≤2 hops, count) — S9 green on real PG, predicate-injection seams ready for M5
 - [ ] **M4** — actions & functions: live-transaction executor, five edit ops, audit
 - [ ] **M5** — security: subjects/groups/PATs, read grants + predicate compilation, silent narrowing
 - [ ] **M6** — ingest & deployment: admin ingest, import batches, compose, migrate-only
