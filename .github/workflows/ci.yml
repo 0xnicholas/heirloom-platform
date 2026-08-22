@@ -37,3 +37,23 @@ jobs:
       - run: pnpm build
       - run: pnpm typecheck
       - run: pnpm test
+
+  # 镜像构建校验（防 Dockerfile/依赖分层腐烂；不推 registry）+ compose 配置有效性
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t heirloom:ci .
+      - run: docker compose -f docker-compose.yml config -q
+      - run: DATABASE_URL=postgres://u:p@localhost:5432/db docker compose -f docker-compose.split.yml config -q
+      # 容器级启动烟雾：零配置 compose 起栈 → 迁移+引导+监听 → 拆栈
+      - name: compose smoke
+        run: |
+          HEIRLOOM_BOOTSTRAP_TOKEN=hlk_ci_smoke_0123456789 docker compose up -d --build
+          for i in $(seq 1 30); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer hlk_ci_smoke_0123456789" http://127.0.0.1:3000/v1/meta/openapi || true)
+            [ "$code" = "200" ] && break
+            sleep 2
+          done
+          [ "$code" = "200" ] || (docker compose logs app; exit 1)
+          docker compose down -v

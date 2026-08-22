@@ -114,6 +114,8 @@ Fixed for any ontology (spec 30): semantic five (`POST /v1/objects/{type}/query`
 
 Error envelope `{error:{code,message,details?}}`; the error-code registry's single authority is [spec 90 §1](https://github.com/0xnicholas/heirloom-pro/blob/main/docs/spec/90-appendix.md). Zero-authorization reads return `200 {data:[]}` — never 403 (silent narrowing).
 
+**Recommended per-table soft limits** (advisory, not enforced — spec 40 §2): keep object types at **≤ 100 scalar properties** and row width in the **low single-digit KBs**; wider/deeper payloads belong in `struct`/`json` columns (TOAST-compressed). Beyond these, index and TOAST behavior degrade before correctness does — restructure the type rather than push the limit.
+
 ## Development
 
 ```bash

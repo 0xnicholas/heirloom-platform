@@ -1,0 +1,14 @@
+# 镜像上下文裁剪：宿主依赖/产物不得覆盖容器内安装（node_modules 平台二进制、陈旧 dist）
+**/node_modules
+**/dist
+**/.heirloom-ontology-*
+**/coverage
+.git
+.github
+**/test
+**/*.test.ts
+*.md
+docker-compose*.yml
+Dockerfile
+.dockerignore
+.env*
