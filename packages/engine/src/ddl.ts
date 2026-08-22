@@ -310,15 +310,9 @@ export function buildOps(cc: ClassifiedChange, structs: StructDef[]): Op[] {
       return ops;
     }
     case "modify-struct": {
-      // 引用方列全量形状校验（JS 侧逐行）→ 由 push 执行器走 rowValidate
-      return [
-        {
-          type: "probe",
-          sql: `SELECT count(*)::int AS n FROM ${JSON.stringify(structs)}::jsonb`, // 占位：真实校验在执行器（rowValidate）
-          description: "struct 形状校验（执行器 rowValidate）",
-          violation: "",
-        },
-      ];
+      // 引用方列全量形状校验在 push 执行器走 rowValidate（JS 侧逐行）——
+      // 此处无 DDL；返回空操作集（历史版本曾留占位假 SQL，真实触发即炸，已清除）
+      return [];
     }
     default:
       // 纯注册面/元数据：无 DDL

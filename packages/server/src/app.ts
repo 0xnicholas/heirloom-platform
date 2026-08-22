@@ -50,6 +50,7 @@ import {
   type AuthContext,
 } from "@heirloom/engine";
 import { errorHandler, sendError } from "./http-error.js";
+import { buildOpenApiDocument } from "./openapi.js";
 
 export interface ServerOptions {
   databaseUrl: string;
@@ -210,6 +211,11 @@ export async function buildApp(opts: ServerOptions): Promise<FastifyInstance> {
     invalidateDefinition();
     const state = await loadDefinition();
     return reply.send({ revision: state.revision, definition: state.definition });
+  });
+
+  // OpenAPI 静态固定面（spec 30 §5）
+  app.get("/v1/meta/openapi", async (_request, reply) => {
+    return reply.send(buildOpenApiDocument());
   });
 
   // ══════════ 管理面 /v1/admin/*（spec 30 §4）══════════

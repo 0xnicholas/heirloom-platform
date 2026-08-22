@@ -273,7 +273,7 @@ async function validateStructReferences(
   }
 }
 
-/** JS 侧 struct 形状校验（近似：字段存在性 + 标量类型；细约束由写通道承担） */
+/** JS 侧 struct 形状校验（字段存在性 + 标量类型 + length/range/enum 成员） */
 function structValueOk(value: unknown, struct: StructDef): boolean {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
   const obj = value as Record<string, unknown>;
@@ -283,9 +283,15 @@ function structValueOk(value: unknown, struct: StructDef): boolean {
       if (p.required) return false;
       continue;
     }
+    // 长度约束（string/enum 元素或标量）
+    if (p.length && typeof v === "string") {
+      if (p.length.min !== undefined && v.length < p.length.min) return false;
+      if (p.length.max !== undefined && v.length > p.length.max) return false;
+    }
+    // 枚举成员
+    if (p.type === "enum" && p.values && (typeof v !== "string" || !p.values.includes(v))) return false;
     switch (p.type) {
       case "string":
-      case "enum":
         if (typeof v !== "string") return false;
         break;
       case "boolean":
@@ -294,9 +300,18 @@ function structValueOk(value: unknown, struct: StructDef): boolean {
       case "integer":
       case "float":
         if (typeof v !== "number") return false;
+        if (p.range) {
+          if (p.range.min !== undefined && v < Number(p.range.min)) return false;
+          if (p.range.max !== undefined && v > Number(p.range.max)) return false;
+        }
         break;
       case "decimal":
-        if (typeof v !== "string" || !/^-?\d+(\.\d+)?$/.test(v)) return false;
+        if (typeof v !== "string" || !/^-?\d+(\.d+)?$/.test(v)) return false;
+        if (p.range) {
+          const num = Number(v);
+          if (p.range.min !== undefined && num < Number(p.range.min)) return false;
+          if (p.range.max !== undefined && num > Number(p.range.max)) return false;
+        }
         break;
       case "struct":
         if (!structValueOk(v, { apiName: p.struct ?? "", displayName: "", status: "active", properties: [] })) return false;
