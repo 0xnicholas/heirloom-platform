@@ -53,28 +53,42 @@ export function constraintToValidationFailed(e: unknown, def?: OntologyDefinitio
   const err = e as { code?: string; constraint?: string; column?: string; detail?: string; message?: string };
   const fields: Record<string, string> = {};
   const constraint = err.constraint ?? "";
-  if (err.code === "23505") {
-    // uq_<table>_<col> 列名含下划线——按本体 unique 属性精确反查（贪婪正则不可靠）
-    let propName = "_";
-    if (def) {
-      for (const t of def.objectTypes) {
-        for (const p of t.properties) {
-          if (p.unique && constraint === `uq_${tableName(t.apiName)}_${columnName(p.apiName)}`) propName = p.apiName;
+  const vf = (() => {
+    if (err.code === "23505") {
+      // uq_<table>_<col> 列名含下划线——按本体 unique 属性精确反查（贪婪正则不可靠）
+      let propName = "_";
+      if (def) {
+        for (const t of def.objectTypes) {
+          for (const p of t.properties) {
+            if (p.unique && constraint === `uq_${tableName(t.apiName)}_${columnName(p.apiName)}`) propName = p.apiName;
+          }
         }
       }
+      fields[propName] = `唯一性冲突（${constraint}）`;
+    } else if (err.code === "23502" && err.column) {
+      fields[err.column] = "必填属性缺失";
+    } else if (err.code === "23514") {
+      const m = /^chk_(\w+)_(\w+)/.exec(constraint);
+      fields[m?.[2] ?? "_"] = `约束校验失败（${constraint}）`;
+    } else if (err.code === "23503") {
+      fields._ = `外键违例（${constraint || err.detail || ""}）`;
+    } else {
+      fields._ = err.detail ?? err.message ?? "数据校验失败";
     }
-    fields[propName] = `唯一性冲突（${constraint}）`;
-  } else if (err.code === "23502" && err.column) {
-    fields[err.column] = "必填属性缺失";
-  } else if (err.code === "23514") {
-    const m = /^chk_(\w+)_(\w+)/.exec(constraint);
-    fields[m?.[2] ?? "_"] = `约束校验失败（${constraint}）`;
-  } else if (err.code === "23503") {
-    fields._ = `外键违例（${constraint || err.detail || ""}）`;
-  } else {
-    fields._ = err.detail ?? err.message ?? "数据校验失败";
+    return new ValidationFailed(fields);
+  })();
+  // 非枚举附者：接入层按 pgCode 分 409/422（unique 冲突 ≠ 校验失败，spec 30 §6）
+  Object.defineProperty(vf, "pgCode", { value: err.code, enumerable: false });
+  Object.defineProperty(vf, "pgConstraint", { value: constraint, enumerable: false });
+  return vf;
+}
+
+/** flush 落地失败的操作归因（携带 edits 索引——接入层据此定位违规条目 index） */
+export class WriteOpError extends Error {
+  constructor(readonly cause: unknown, readonly editIndex: number) {
+    super("写操作落地失败");
+    this.name = "WriteOpError";
   }
-  return new ValidationFailed(fields);
 }
 
 // ────────────────────────────── 校验助手 ──────────────────────────────
@@ -237,19 +251,21 @@ export interface EditRecord {
 }
 
 /** 已存在行的编辑指令（flush 顺序执行——顺序写后写胜出，spec 20 §6） */
-type Instr =
+type Instr = { editIndex: number } & (
   | { op: "modify"; type: string; id: string; patch: Record<string, unknown>; expectedUpdatedAt?: string }
   | { op: "delete"; type: string; id: string }
   | { op: "link"; type: string; id: string; col: string; targetId: string; table: string }
   | { op: "unlink"; type: string; id: string; col: string; table: string }
   | { op: "mn-add"; declarer: string; linkName: string; fromId: string; toId: string }
-  | { op: "mn-remove"; declarer: string; linkName: string; fromId: string; toId: string };
+  | { op: "mn-remove"; declarer: string; linkName: string; fromId: string; toId: string }
+);
 
 interface PendingCreate {
   type: string;
   typeDef: ObjectTypeDef;
   props: Record<string, unknown>;
   links: Map<string, string | null>; // 物理列 → 目标 id
+  editIndex: number;
 }
 
 // ────────────────────────────── 写通道 ──────────────────────────────
@@ -441,7 +457,8 @@ export class WriteChannel {
       }
     }
     const id = uuidv7();
-    this.pending.set(id, { type: typeApi, typeDef, props: clean, links: new Map() });
+    const ei = this.edits.length;
+    this.pending.set(id, { type: typeApi, typeDef, props: clean, links: new Map(), editIndex: ei });
     this.edits.push({ type: typeApi, id, op: "create" });
     return { id, ...clean };
   }
@@ -472,7 +489,8 @@ export class WriteChannel {
     if (!raw || this.deletedIds.has(obj.id)) {
       fieldFail("id", `对象不存在：${typeApi} ${obj.id}`);
     }
-    this.instrs.push({ op: "modify", type: typeApi, id: obj.id, patch: clean, expectedUpdatedAt: opts.expectedUpdatedAt });
+    const ei = this.edits.length;
+    this.instrs.push({ editIndex: ei, op: "modify", type: typeApi, id: obj.id, patch: clean, expectedUpdatedAt: opts.expectedUpdatedAt });
     this.edits.push({ type: typeApi, id: obj.id, op: "modify" });
     return this.toApi(typeDef, obj.id, { ...raw!, ...encodeIntoRaw(typeDef, clean) });
   }
@@ -508,7 +526,8 @@ export class WriteChannel {
     if (referencers.length > 0) throw new LinkRestrictedError(referencers);
 
     this.deletedIds.add(id);
-    this.instrs.push({ op: "delete", type: typeApi, id });
+    const ei = this.edits.length;
+    this.instrs.push({ editIndex: ei, op: "delete", type: typeApi, id });
     this.edits.push({ type: typeApi, id, op: "delete" });
   }
 
@@ -532,7 +551,7 @@ export class WriteChannel {
       const rows = this.linkRows.get(lt) ?? [];
       if (!rows.some((x) => x.from === fromId && x.to === toId)) rows.push({ from: fromId, to: toId });
       this.linkRows.set(lt, rows);
-      this.instrs.push({ op: "mn-add", declarer: r.physical.declarer, linkName: r.physical.linkName, fromId, toId });
+      this.instrs.push({ editIndex: this.edits.length - 1, op: "mn-add", declarer: r.physical.declarer, linkName: r.physical.linkName, fromId, toId });
       return;
     }
 
@@ -543,7 +562,7 @@ export class WriteChannel {
         p.links.set(r.physical.col, target.id);
         return;
       }
-      this.instrs.push({ op: "link", type: typeApi, id: obj.id, col: r.physical.col, targetId: target.id, table: typeApi });
+      this.instrs.push({ editIndex: this.edits.length - 1, op: "link", type: typeApi, id: obj.id, col: r.physical.col, targetId: target.id, table: typeApi });
       return;
     }
 
@@ -554,7 +573,7 @@ export class WriteChannel {
         p.links.set(r.physical.col, obj.id);
         return;
       }
-      this.instrs.push({ op: "link", type: typeApi, id: target.id, col: r.physical.col, targetId: obj.id, table: r.physical.other });
+      this.instrs.push({ editIndex: this.edits.length - 1, op: "link", type: typeApi, id: target.id, col: r.physical.col, targetId: obj.id, table: r.physical.other });
     }
   }
 
@@ -571,7 +590,7 @@ export class WriteChannel {
       const fromId = r.forward ? obj.id : target.id;
       const toId = r.forward ? target.id : obj.id;
       this.linkRows.set(lt, (this.linkRows.get(lt) ?? []).filter((x) => !(x.from === fromId && x.to === toId)));
-      this.instrs.push({ op: "mn-remove", declarer: r.physical.declarer, linkName: r.physical.linkName, fromId, toId });
+      this.instrs.push({ editIndex: this.edits.length - 1, op: "mn-remove", declarer: r.physical.declarer, linkName: r.physical.linkName, fromId, toId });
       return;
     }
 
@@ -581,7 +600,7 @@ export class WriteChannel {
         p.links.set(r.physical.col, null);
         return;
       }
-      this.instrs.push({ op: "unlink", type: typeApi, id: obj.id, col: r.physical.col, table: typeApi });
+      this.instrs.push({ editIndex: this.edits.length - 1, op: "unlink", type: typeApi, id: obj.id, col: r.physical.col, table: typeApi });
       return;
     }
 
@@ -590,7 +609,7 @@ export class WriteChannel {
       p.links.set(r.physical.col, null);
       return;
     }
-    this.instrs.push({ op: "unlink", type: typeApi, id: target.id, col: r.physical.col, table: r.physical.other });
+    this.instrs.push({ editIndex: this.edits.length - 1, op: "unlink", type: typeApi, id: target.id, col: r.physical.col, table: r.physical.other });
   }
 
   // ── flush：指令顺序执行 + pending 依赖序 INSERT ──
@@ -617,7 +636,7 @@ export class WriteChannel {
       try {
         await this.exec(`INSERT INTO ${objectTable(p.type)} (${allCols.join(", ")}) VALUES (${placeholders})`, params);
       } catch (e) {
-        throw constraintToValidationFailed(e, this.def);
+        throw new WriteOpError(constraintToValidationFailed(e, this.def), p.editIndex);
       }
       inserting.delete(id);
     };
@@ -678,8 +697,10 @@ export class WriteChannel {
             break;
         }
       } catch (e) {
-        if (e instanceof ValidationFailed || e instanceof PreconditionFailedError) throw e;
-        throw constraintToValidationFailed(e, this.def);
+        if (e instanceof ValidationFailed || e instanceof PreconditionFailedError) {
+          throw new WriteOpError(e, instr.editIndex);
+        }
+        throw new WriteOpError(constraintToValidationFailed(e, this.def), instr.editIndex);
       }
     }
 

@@ -1,0 +1,21 @@
+# 迁移/运行账号分离形态（spec 70 §7）：migrate 持 DDL 先行；app 免 DDL
+# （HEIRLOOM_SKIP_MIGRATE=1）。用例：托管 PG / 收紧部署。
+#   docker compose -f docker-compose.split.yml run --rm migrate
+#   docker compose -f docker-compose.split.yml up -d app
+services:
+  migrate:
+    build: .
+    command: ["node", "packages/cli/dist/cli.js", "migrate-only"]
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?须指向外部/已起 Postgres}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+  app:
+    build: .
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?须指向外部/已起 Postgres}
+      HEIRLOOM_SKIP_MIGRATE: "1"
+      HEIRLOOM_BOOTSTRAP_ADMIN: ${HEIRLOOM_BOOTSTRAP_ADMIN:-user:admin-01}
+      HEIRLOOM_BOOTSTRAP_TOKEN: ${HEIRLOOM_BOOTSTRAP_TOKEN:-}
+    ports:
+      - "3000:3000"

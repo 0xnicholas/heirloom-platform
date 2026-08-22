@@ -1,0 +1,31 @@
+{
+  "name": "@heirloom/cli",
+  "version": "0.1.0",
+  "description": "Heirloom CLI — endpoint thin shell (ontology apply / import / migrate-only / admin; spec 30 §7)",
+  "license": "Apache-2.0",
+  "type": "module",
+  "bin": {
+    "heirloom": "./dist/cli.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "pnpm --filter @heirloom/engine build && tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@heirloom/dsl": "workspace:*",
+    "@heirloom/engine": "workspace:*",
+    "esbuild": "^0.25.12"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
+  }
+}

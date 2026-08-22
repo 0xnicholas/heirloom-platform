@@ -98,6 +98,16 @@ export async function issueToken(db: Db, subjectId: string): Promise<{ tokenId: 
   return { tokenId: id, token };
 }
 
+/** 引导专用：以指定明文落哈希（env HEIRLOOM_BOOTSTRAP_TOKEN；幂等——已存在同哈希则返回现有 id） */
+export async function issueTokenWithValue(db: Db, subjectId: string, token: string): Promise<{ tokenId: string }> {
+  if (!token.startsWith("hlk_")) throw new Error("引导 token 必须 hlk_ 前缀");
+  const existing = await sql`SELECT id FROM hl_tokens WHERE token_hash = ${sha256(token)}`.execute(db);
+  if (existing.rows.length > 0) return { tokenId: (existing.rows[0] as { id: string }).id };
+  const id = crypto.randomUUID();
+  await sql`INSERT INTO hl_tokens (id, subject_id, token_hash) VALUES (${id}::uuid, ${subjectId}::uuid, ${sha256(token)})`.execute(db);
+  return { tokenId: id };
+}
+
 /** 吊销：即时生效（spec 30 §4.3） */
 export async function revokeToken(db: Db, tokenId: string): Promise<boolean> {
   const r = await sql`UPDATE hl_tokens SET revoked_at = now() WHERE id = ${tokenId}::uuid AND revoked_at IS NULL`.execute(db);
@@ -166,6 +176,50 @@ export interface SubjectHandle {
   subjectId: string;
 }
 
+export interface SubjectRow {
+  subjectId: string;
+  kind: "user" | "service";
+  name: string;
+  isAdmin: boolean;
+  createdAt: string;
+  groups: string[];
+}
+
+export async function listSubjects(db: Db): Promise<SubjectRow[]> {
+  const r = await sql`
+    SELECT s.id, s.kind, s.name, s.is_admin, s.created_at,
+           array_remove(array_agg(g.name), NULL) AS groups
+    FROM hl_subjects s
+    LEFT JOIN hl_group_members m ON m.subject_id = s.id
+    LEFT JOIN hl_groups g ON g.id = m.group_id
+    GROUP BY s.id ORDER BY s.created_at, s.id`.execute(db);
+  return (r.rows as unknown as Record<string, unknown>[]).map((row) => ({
+    subjectId: row.id as string,
+    kind: row.kind === "service" ? "service" : "user",
+    name: row.name as string,
+    isAdmin: Boolean(row.is_admin),
+    createdAt: row.created_at as string,
+    groups: (row.groups as string[]) ?? [],
+  }));
+}
+
+export async function findSubjectByName(db: Db, name: string): Promise<SubjectRow | null> {
+  return (await listSubjects(db)).find((s) => s.name === name) ?? null;
+}
+
+export async function updateSubject(db: Db, subjectId: string, patch: { name?: string; isAdmin?: boolean }): Promise<boolean> {
+  const r = await sql`UPDATE hl_subjects SET
+      name = COALESCE(${patch.name ?? null}, name),
+      is_admin = COALESCE(${patch.isAdmin ?? null}, is_admin)
+    WHERE id = ${subjectId}::uuid`.execute(db);
+  return Number(r.numAffectedRows ?? 0) > 0;
+}
+
+export async function deleteSubject(db: Db, subjectId: string): Promise<boolean> {
+  const r = await sql`DELETE FROM hl_subjects WHERE id = ${subjectId}::uuid`.execute(db);
+  return Number(r.numAffectedRows ?? 0) > 0;
+}
+
 export async function createSubject(
   db: Db,
   opts: { kind: "user" | "service"; name: string; isAdmin?: boolean },
@@ -179,6 +233,31 @@ export async function createGroup(db: Db, name: string): Promise<{ groupId: stri
   const id = crypto.randomUUID();
   await sql`INSERT INTO hl_groups (id, name) VALUES (${id}::uuid, ${name})`.execute(db);
   return { groupId: id };
+}
+
+export interface GroupRow {
+  groupId: string;
+  name: string;
+  createdAt: string;
+  memberCount: number;
+}
+
+export async function listGroups(db: Db): Promise<GroupRow[]> {
+  const r = await sql`
+    SELECT g.id, g.name, g.created_at, count(m.subject_id)::int AS member_count
+    FROM hl_groups g LEFT JOIN hl_group_members m ON m.group_id = g.id
+    GROUP BY g.id ORDER BY g.created_at, g.id`.execute(db);
+  return (r.rows as unknown as Record<string, unknown>[]).map((row) => ({
+    groupId: row.id as string,
+    name: row.name as string,
+    createdAt: row.created_at as string,
+    memberCount: Number(row.member_count ?? 0),
+  }));
+}
+
+export async function deleteGroup(db: Db, groupId: string): Promise<boolean> {
+  const r = await sql`DELETE FROM hl_groups WHERE id = ${groupId}::uuid`.execute(db);
+  return Number(r.numAffectedRows ?? 0) > 0;
 }
 
 export async function addGroupMember(db: Db, groupId: string, subjectId: string): Promise<void> {
@@ -270,6 +349,27 @@ export async function revokeReadGrant(db: Db, grantId: string): Promise<boolean>
   return Number(r.numAffectedRows ?? 0) > 0;
 }
 
+export interface ReadGrantRow {
+  grantId: string;
+  subjectId: string | null;
+  groupId: string | null;
+  typeApiName: string;
+  predicate: unknown;
+  createdAt: string;
+}
+
+export async function listReadGrants(db: Db): Promise<ReadGrantRow[]> {
+  const r = await sql`SELECT id, subject_id, group_id, type_api_name, predicate, created_at FROM hl_read_grants ORDER BY created_at, id`.execute(db);
+  return (r.rows as unknown as Record<string, unknown>[]).map((row) => ({
+    grantId: row.id as string,
+    subjectId: (row.subject_id as string) ?? null,
+    groupId: (row.group_id as string) ?? null,
+    typeApiName: row.type_api_name as string,
+    predicate: row.predicate ?? null,
+    createdAt: row.created_at as string,
+  }));
+}
+
 /**
  * 装配主体的全类型读谓词表（喂 M3/M4 注入点 predicateByType）：
  * - 超管 → {}（全类型可见，最外层短路，spec 50 §3）；
@@ -327,6 +427,25 @@ export async function revokeActionGrant(db: Db, grantId: string): Promise<boolea
   return Number(r.numAffectedRows ?? 0) > 0;
 }
 
+export interface ActionGrantRow {
+  grantId: string;
+  subjectId: string | null;
+  groupId: string | null;
+  actionApiName: string;
+  createdAt: string;
+}
+
+export async function listActionGrants(db: Db): Promise<ActionGrantRow[]> {
+  const r = await sql`SELECT id, subject_id, group_id, action_api_name, created_at FROM hl_action_grants ORDER BY created_at, id`.execute(db);
+  return (r.rows as unknown as Record<string, unknown>[]).map((row) => ({
+    grantId: row.id as string,
+    subjectId: (row.subject_id as string) ?? null,
+    groupId: (row.group_id as string) ?? null,
+    actionApiName: row.action_api_name as string,
+    createdAt: row.created_at as string,
+  }));
+}
+
 /** 引擎层白名单判定（invoke 前置；超管短路；拒 → WhitelistDeniedError，spec 50 §8） */
 export async function checkActionAllowed(db: Db, auth: AuthContext, actionApiName: string): Promise<void> {
   if (auth.isAdmin) return;
@@ -345,6 +464,127 @@ export async function checkActionAllowed(db: Db, auth: AuthContext, actionApiNam
 /** 管理面守卫：非超管 → AdminForbiddenError（spec 80 S11；日志由调用方记） */
 export function assertAdmin(auth: AuthContext): void {
   if (!auth.isAdmin) throw new AdminForbiddenError(auth.name);
+}
+
+/** 接入端点授权（spec 70 §2 / 30 §4 唯一例外）：超管 或 持「ingest」接入授权的服务账号 */
+export const INGEST_GRANT_ACTION = "ingest";
+
+export async function checkIngestAllowed(db: Db, auth: AuthContext): Promise<void> {
+  if (auth.isAdmin) return;
+  if (auth.subjectKind === "service") {
+    try {
+      await checkActionAllowed(db, auth, INGEST_GRANT_ACTION);
+      return;
+    } catch {
+      throw new AdminForbiddenError(auth.name);
+    }
+  }
+  throw new AdminForbiddenError(auth.name);
+}
+
+// ────────────────────────────── 审计/安全日志查询（管理面只读，spec 30 §4 / 80 S11） ──────────────────────────────
+
+export interface AuditRow {
+  id: number;
+  kind: string;
+  subject: string | null;
+  at: string;
+  actionApiName: string | null;
+  requestId: string | null;
+  source: string | null;
+  revisionFrom: number | null;
+  revisionTo: number | null;
+  params: unknown;
+  edits: unknown;
+  counts: unknown;
+  changeCounts: unknown;
+  durationMs: number | null;
+}
+
+export interface SecurityLogRow {
+  id: number;
+  at: string;
+  code: string;
+  subject: string | null;
+  detail: unknown;
+}
+
+export interface ListFilters {
+  limit?: number;
+  cursor?: string;
+  after?: string;
+}
+
+function decodeListCursor(cursor: string): number {
+  try {
+    const v = JSON.parse(Buffer.from(cursor, "base64url").toString("utf8"));
+    if (typeof v?.id !== "number") throw new Error();
+    return v.id;
+  } catch {
+    throw new Error("游标不可解析");
+  }
+}
+
+function encodeListCursor(id: number): string {
+  return Buffer.from(JSON.stringify({ id }), "utf8").toString("base64url");
+}
+
+/** 审计查询：kind/action/requestId/subject 过滤 + keyset（id 降序，新在前） */
+export async function listAudit(
+  db: Db,
+  f: ListFilters & { kind?: string; action?: string; requestId?: string },
+): Promise<{ rows: AuditRow[]; nextCursor?: string }> {
+  const limit = Math.min(Math.max(f.limit ?? 100, 1), 1000);
+  const conds: ReturnType<typeof sql>[] = [];
+  if (f.kind) conds.push(sql`kind = ${f.kind}`);
+  if (f.action) conds.push(sql`action_api_name = ${f.action}`);
+  if (f.requestId) conds.push(sql`request_id = ${f.requestId}`);
+  if (f.after) conds.push(sql`at > ${f.after}::timestamptz`);
+  if (f.cursor) conds.push(sql`id < ${decodeListCursor(f.cursor)}`);
+  const where = conds.length > 0 ? sql` WHERE ${sql.join(conds, sql` AND `)}` : sql``;
+  const r = await sql`SELECT * FROM hl_audit_log${where} ORDER BY id DESC LIMIT ${limit + 1}`.execute(db);
+  const rows = (r.rows as unknown as Record<string, unknown>[]).slice(0, limit).map((row) => ({
+    id: Number(row.id),
+    kind: row.kind as string,
+    subject: (row.subject_id as string) ?? null,
+    at: row.at as string,
+    actionApiName: (row.action_api_name as string) ?? null,
+    requestId: (row.request_id as string) ?? null,
+    source: (row.source as string) ?? null,
+    revisionFrom: row.revision_from === null ? null : Number(row.revision_from),
+    revisionTo: row.revision_to === null ? null : Number(row.revision_to),
+    params: row.params ?? null,
+    edits: row.edits ?? null,
+    counts: row.counts ?? null,
+    changeCounts: row.change_counts ?? null,
+    durationMs: row.duration_ms === null || row.duration_ms === undefined ? null : Number(row.duration_ms),
+  }));
+  const hasMore = (r.rows as unknown[]).length > limit;
+  return hasMore && rows.length > 0 ? { rows, nextCursor: encodeListCursor(rows[rows.length - 1]!.id) } : { rows };
+}
+
+/** 安全日志查询：code/subject 过滤 + keyset */
+export async function listSecurityLog(
+  db: Db,
+  f: ListFilters & { code?: string; subject?: string },
+): Promise<{ rows: SecurityLogRow[]; nextCursor?: string }> {
+  const limit = Math.min(Math.max(f.limit ?? 100, 1), 1000);
+  const conds: ReturnType<typeof sql>[] = [];
+  if (f.code) conds.push(sql`code = ${f.code}`);
+  if (f.subject) conds.push(sql`subject = ${f.subject}`);
+  if (f.after) conds.push(sql`at > ${f.after}::timestamptz`);
+  if (f.cursor) conds.push(sql`id < ${decodeListCursor(f.cursor)}`);
+  const where = conds.length > 0 ? sql` WHERE ${sql.join(conds, sql` AND `)}` : sql``;
+  const r = await sql`SELECT * FROM hl_security_log${where} ORDER BY id DESC LIMIT ${limit + 1}`.execute(db);
+  const rows = (r.rows as unknown as Record<string, unknown>[]).slice(0, limit).map((row) => ({
+    id: Number(row.id),
+    at: row.at as string,
+    code: row.code as string,
+    subject: (row.subject as string) ?? null,
+    detail: row.detail ?? null,
+  }));
+  const hasMore = (r.rows as unknown[]).length > limit;
+  return hasMore && rows.length > 0 ? { rows, nextCursor: encodeListCursor(rows[rows.length - 1]!.id) } : { rows };
 }
 
 // ────────────────────────────── 安全日志 ──────────────────────────────

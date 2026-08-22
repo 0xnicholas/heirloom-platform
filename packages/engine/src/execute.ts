@@ -19,6 +19,7 @@ import { compileFilterFragment, type FilterNode, type PredicateByType } from "./
 import {
   WriteChannel,
   validatePropValue,
+  WriteOpError,
   type EditRecord,
 } from "./write.js";
 
@@ -301,8 +302,14 @@ export async function invokeAction(
       if (e instanceof ValidationFailed || e instanceof PermissionDenied) throw e; // 422/403（安全日志由 server 层记）
       throw e;
     }
-    // pending/指令落地（约束违例 → ValidationFailed/Unique/Precondition/LinkRestricted）
-    const edits = await channel.flush();
+    // pending/指令落地（约束违例 → ValidationFailed/Unique/Precondition/LinkRestricted；
+    // WriteOpError 仅归因包装——动作语义用 cause）
+    let edits: EditRecord[];
+    try {
+      edits = await channel.flush();
+    } catch (e) {
+      throw e instanceof WriteOpError ? e.cause : e;
+    }
 
     // 审计行（已提交动作一行，spec 20 §10；回滚路径不落 = 本函数抛错即未到此处）
     const txid = (await exec(`SELECT txid_current()::text AS txid`, []))[0]?.txid as string | undefined;

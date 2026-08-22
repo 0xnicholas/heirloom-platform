@@ -1,0 +1,31 @@
+# 零配置默认形态（spec 70 §6）：app + postgres 两服务；DATABASE_URL 唯一抽象。
+# 引导：HEIRLOOM_BOOTSTRAP_ADMIN 首个超管；HEIRLOOM_BOOTSTRAP_TOKEN 可选
+# （设为 hlk_ 开头的自定义 PAT——即获得首个可调用凭据，明文不出现在库中）。
+services:
+  app:
+    build: .
+    environment:
+      DATABASE_URL: postgres://heirloom:${PGPASSWORD:-heirloom}@postgres:5432/heirloom
+      HEIRLOOM_BOOTSTRAP_ADMIN: ${HEIRLOOM_BOOTSTRAP_ADMIN:-user:admin-01}
+      HEIRLOOM_BOOTSTRAP_TOKEN: ${HEIRLOOM_BOOTSTRAP_TOKEN:-}
+      HEIRLOOM_ACTION_TIMEOUT_MS: ${HEIRLOOM_ACTION_TIMEOUT_MS:-30000}
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: heirloom
+      POSTGRES_PASSWORD: ${PGPASSWORD:-heirloom}
+      POSTGRES_DB: heirloom
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U heirloom"]
+      interval: 2s
+      timeout: 2s
+      retries: 15
+volumes:
+  pgdata:
