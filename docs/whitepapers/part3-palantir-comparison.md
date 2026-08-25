@@ -1,5 +1,7 @@
 # 第三部分：与 Palantir Ontology 对比
 
+> ⚠️ **历史资料（v0，2026-04~07）**：本文描述的是第一代 Java 实现的设计（Abilities/链接三原语/Agent 一等公民），该实现已归档；v1 规格未采纳这些设计。当前权威对比见 [docs/research/v1-vs-palantir.md](../research/v1-vs-palantir.md)（含本文差异化设计的处置评估：Abilities 复活进 v2、链接三原语埋葬、Agent 一等公民降格为验收视角）。
+
 ## 概述
 
 Palantir Ontology 是迄今为止最成熟的企业级语义本体系统。近年来，Palantir 通过 AIP（Artificial Intelligence Platform）将 AI Agent 集成到 Ontology 之上——Agent 通过 Action Types 操作业务对象，通过 Ontology SDK 查询数据。
