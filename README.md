@@ -2,7 +2,9 @@
 
 Self-hostable ontology platform: define your domain as code with a **TypeScript DSL**, get a governed read/write REST API, actions, and entity-level RBAC on top of a single Postgres.
 
-> Implementation of the [Heirloom spec](https://github.com/0xnicholas/heirloom-pro/tree/main/docs/spec) (spec 01–90). The spec is the authority; this repo is the build. **v1 complete** — all milestones M1–M7 landed, acceptance scenarios S0–S11 green end-to-end over real HTTP.
+> Implementation of the [Heirloom spec](./docs/spec) (spec 01–90). The spec is the authority; this repo is the build. **v1 complete** — all milestones M1–M7 landed, acceptance scenarios S0–S11 green end-to-end over real HTTP.
+>
+> Spec, [ADRs](./docs/adr), glossary ([CONTEXT.md](./CONTEXT.md)), [workbench spec](./docs/workbench-spec), and [legacy whitepapers](./docs/whitepapers) are maintained in-repo (merged from the archived `heirloom-pro` spec repo; historical wayfinder ticket/branch links still point there).
 
 ## What it is (v1)
 
@@ -112,7 +114,7 @@ Two supported topologies, same image (spec 70 §6–§7):
 
 Fixed for any ontology (spec 30): semantic five (`POST /v1/objects/{type}/query`, `GET /v1/objects/{type}/{id}` w/ include + If-Match, `POST /v1/actions/{name}/invoke`, `POST /v1/functions/{name}/invoke`, `GET /v1/meta/ontology`) + admin nine groups under `/v1/admin/*` (ontology push, ingest, audit, security-log, subjects, groups, read-grants, action-grants, tokens). Machine-readable: `GET /v1/meta/openapi` (static 3.1 doc; per-ontology generation → v2).
 
-Error envelope `{error:{code,message,details?}}`; the error-code registry's single authority is [spec 90 §1](https://github.com/0xnicholas/heirloom-pro/blob/main/docs/spec/90-appendix.md). Zero-authorization reads return `200 {data:[]}` — never 403 (silent narrowing).
+Error envelope `{error:{code,message,details?}}`; the error-code registry's single authority is [spec 90 §1](./docs/spec/90-appendix.md). Zero-authorization reads return `200 {data:[]}` — never 403 (silent narrowing).
 
 **Recommended per-table soft limits** (advisory, not enforced — spec 40 §2): keep object types at **≤ 100 scalar properties** and row width in the **low single-digit KBs**; wider/deeper payloads belong in `struct`/`json` columns (TOAST-compressed). Beyond these, index and TOAST behavior degrade before correctness does — restructure the type rather than push the limit.
 
