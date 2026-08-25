@@ -10,6 +10,7 @@ COPY pnpm-lock.yaml pnpm-workspace.yaml package.json tsconfig.base.json ./
 COPY packages/dsl/package.json packages/dsl/
 COPY packages/example-ontology/package.json packages/example-ontology/
 COPY packages/engine/package.json packages/engine/
+COPY packages/sdk/package.json packages/sdk/
 COPY packages/server/package.json packages/server/
 COPY packages/cli/package.json packages/cli/
 RUN pnpm install --frozen-lockfile
@@ -24,11 +25,13 @@ COPY pnpm-lock.yaml pnpm-workspace.yaml package.json tsconfig.base.json ./
 COPY packages/dsl/package.json packages/dsl/
 COPY packages/example-ontology/package.json packages/example-ontology/
 COPY packages/engine/package.json packages/engine/
+COPY packages/sdk/package.json packages/sdk/
 COPY packages/server/package.json packages/server/
 COPY packages/cli/package.json packages/cli/
-RUN pnpm install --frozen-lockfile --filter @heirloom/dsl --filter @heirloom/engine --filter @heirloom/server --filter @heirloom/cli --prod
+RUN pnpm install --frozen-lockfile --filter @heirloom/dsl --filter @heirloom/engine --filter @heirloom/sdk --filter @heirloom/server --filter @heirloom/cli --prod
 COPY --from=build /app/packages/dsl/dist packages/dsl/dist
 COPY --from=build /app/packages/engine/dist packages/engine/dist
+COPY --from=build /app/packages/sdk/dist packages/sdk/dist
 COPY --from=build /app/packages/server/dist packages/server/dist
 COPY --from=build /app/packages/cli/dist packages/cli/dist
 # 示例本体随镜像（容器内 heirloom ontology apply 演示路径）
