@@ -1,6 +1,6 @@
 {
   "name": "@heirloom/example-ontology",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Frozen HR/project example ontology (spec 80 §示例本体, frozen from #12 prototype) — DSL fixture and e2e S0–S11 scenario ontology",
   "license": "Apache-2.0",
   "type": "module",

@@ -23,6 +23,9 @@ importers:
       '@heirloom/engine':
         specifier: workspace:*
         version: link:../engine
+      '@heirloom/sdk':
+        specifier: workspace:*
+        version: link:../sdk
       esbuild:
         specifier: ^0.25.12
         version: 0.25.12
@@ -96,6 +99,37 @@ importers:
       typescript:
         specifier: ^5.9.2
         version: 5.9.3
+
+  packages/sdk:
+    dependencies:
+      '@heirloom/dsl':
+        specifier: workspace:*
+        version: link:../dsl
+    devDependencies:
+      '@heirloom/engine':
+        specifier: workspace:*
+        version: link:../engine
+      '@heirloom/example-ontology':
+        specifier: workspace:*
+        version: link:../example-ontology
+      '@heirloom/server':
+        specifier: workspace:*
+        version: link:../server
+      '@types/node':
+        specifier: ^24.0.0
+        version: 24.13.3
+      '@types/pg':
+        specifier: ^8.15.0
+        version: 8.23.1
+      pg:
+        specifier: ^8.16.0
+        version: 8.23.0
+      typescript:
+        specifier: ^5.9.2
+        version: 5.9.3
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.7(@types/node@24.13.3)
 
   packages/server:
     dependencies:

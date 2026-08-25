@@ -134,6 +134,14 @@ v1 唯一认证凭据：服务端签发的不透明随机串，可吊销，Beare
 
 v1 对外的唯一 HTTP 面：REST 通用端点 + TS SDK。端点集对任意本体不变（additive 演化不改 API 面）；GraphQL → v2。
 
+### TS SDK（同源编译）
+
+从本体源码模块直推的类型化 REST 客户端（`createSdk`）：对象形状、过滤算子封闭集、排序键、include 基数、动作参数全部静态检查，零 codegen。接口面 = 语义五端点 + 对账；管理面归 CLI。_Avoid_: 客户端生成、SDK 签发。
+
+### 期望态对账
+
+SDK 的版本锔点职责：本地物化期望态与 `GET /v1/meta/ontology` 生效态规范化比对；一致返回 revision，漂移抛带首差路径的异常并指向 `heirloom ontology apply`。_Avoid_: 版本同步、schema 校验。
+
 ### 查询端点
 
 `POST /v1/objects/{type}/query`：过滤/排序（≤3 键）/keyset 游标/include（≤2 跳）走 JSON 体；响应统一 `{data, nextCursor?}`。零授权 = 200 空集（静默收窄）。

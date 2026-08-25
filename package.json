@@ -1,7 +1,7 @@
 {
   "name": "heirloom-platform",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "Heirloom platform monorepo — TS DSL + engine + REST server + CLI. Spec: https://github.com/0xnicholas/heirloom-pro/tree/main/docs/spec",
   "license": "Apache-2.0",
   "packageManager": "pnpm@10.33.2",

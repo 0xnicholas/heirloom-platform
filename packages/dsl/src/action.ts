@@ -11,68 +11,78 @@ import { registerAction, registerQueryFn } from "./registry.js";
 import type { ActionCtx, QueryCtx } from "./context-types.js";
 import type { RuntimeProps } from "./shapes.js";
 
-export class ActionMarker<P = any> {
+export class ActionMarker<P = any, R = unknown, N extends string = string> {
+  declare readonly __hlApiName?: N;
+  /** 判别幻影：与 QueryFnMarker 结构互赋（ActionCtx ⊇ QueryCtx 逆变）下约東路由 */
+  declare readonly __hlCallable?: "action";
   constructor(
     public readonly apiName: string,
     public readonly displayName: string,
     public readonly description: string | undefined,
     public readonly status: Status,
     public readonly __paramIRs: ReadonlyMap<string, PropIRHolder>,
-    public readonly __execute: (ctx: ActionCtx, params: any) => unknown,
+    public readonly __execute: (ctx: ActionCtx, params: any) => R,
   ) {}
 }
 
-export class QueryFnMarker<P = any> {
+export class QueryFnMarker<P = any, R = unknown, N extends string = string> {
+  declare readonly __hlApiName?: N;
+  /** 判别幻影：与 ActionMarker 结构互赋下约束路由 */
+  declare readonly __hlCallable?: "queryfn";
   constructor(
     public readonly apiName: string,
     public readonly displayName: string,
     public readonly description: string | undefined,
     public readonly status: Status,
     public readonly __paramIRs: ReadonlyMap<string, PropIRHolder>,
-    public readonly __execute: (q: QueryCtx, params: any) => unknown,
+    public readonly __execute: (q: QueryCtx, params: any) => R,
   ) {}
 }
 
-export interface ActionOpts<P extends Record<string, PropIRHolder>> {
-  apiName: string;
+export interface ActionOpts<P extends Record<string, PropIRHolder>, R = unknown, N extends string = string> {
+  apiName: N;
   displayName: string;
   description?: string;
   status?: Status;
   params: P;
-  execute: (ctx: ActionCtx, params: RuntimeProps<P>) => unknown;
+  execute: (ctx: ActionCtx, params: RuntimeProps<P>) => R;
 }
 
-export interface QueryFnOpts<P extends Record<string, PropIRHolder>> {
-  apiName: string;
+export interface QueryFnOpts<P extends Record<string, PropIRHolder>, R = unknown, N extends string = string> {
+  apiName: N;
   displayName: string;
   description?: string;
   status?: Status;
   params: P;
-  execute: (q: QueryCtx, params: RuntimeProps<P>) => unknown;
+  execute: (q: QueryCtx, params: RuntimeProps<P>) => R;
 }
 
-export function action<P extends Record<string, PropIRHolder>>(opts: ActionOpts<P>): ActionMarker<P> {
+export function action<P extends Record<string, PropIRHolder>, R, const N extends string>(
+  opts: ActionOpts<P, R, N>,
+): ActionMarker<P, R, N> {
   const marker = new ActionMarker(
     opts.apiName,
     opts.displayName,
     opts.description,
     opts.status ?? "active",
     new Map(Object.entries(opts.params)),
-    opts.execute as (ctx: ActionCtx, params: any) => unknown,
+    opts.execute as (ctx: ActionCtx, params: any) => R,
   );
   registerAction(marker);
-  return marker as unknown as ActionMarker<P>;
+  return marker as unknown as ActionMarker<P, R, N>;
 }
 
-export function queryFn<P extends Record<string, PropIRHolder>>(opts: QueryFnOpts<P>): QueryFnMarker<P> {
+export function queryFn<P extends Record<string, PropIRHolder>, R, const N extends string>(
+  opts: QueryFnOpts<P, R, N>,
+): QueryFnMarker<P, R, N> {
   const marker = new QueryFnMarker(
     opts.apiName,
     opts.displayName,
     opts.description,
     opts.status ?? "active",
     new Map(Object.entries(opts.params)),
-    opts.execute as (q: QueryCtx, params: any) => unknown,
+    opts.execute as (q: QueryCtx, params: any) => R,
   );
   registerQueryFn(marker);
-  return marker as unknown as QueryFnMarker<P>;
+  return marker as unknown as QueryFnMarker<P, R, N>;
 }

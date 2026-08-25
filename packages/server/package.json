@@ -1,6 +1,6 @@
 {
   "name": "@heirloom/server",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Heirloom REST server — semantic + admin surfaces on Fastify (spec 30)",
   "license": "Apache-2.0",
   "type": "module",

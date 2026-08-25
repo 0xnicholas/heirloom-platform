@@ -15,7 +15,8 @@ import type { InputProps, RuntimeProps } from "./shapes.js";
 declare const OBJ_PROPS: unique symbol;
 declare const OBJ_LINKS: unique symbol;
 
-export class ObjectTypeMarker<P = any, L = any> {
+export class ObjectTypeMarker<P = any, L = any, N extends string = string> {
+  declare readonly __hlApiName?: N;
   readonly __hlPropsP?: P;
   readonly __hlLinksL?: L;
   constructor(
@@ -30,14 +31,14 @@ export class ObjectTypeMarker<P = any, L = any> {
   ) {}
 }
 
-export function objectType<P extends Record<string, PropIRHolder>, L extends Record<string, LinkMarker<any>>>(opts: {
-  apiName: string;
+export function objectType<P extends Record<string, PropIRHolder>, L extends Record<string, LinkMarker<any>>, const N extends string>(opts: {
+  apiName: N;
   displayName: string;
   description?: string;
   status?: Status;
   properties: P;
   links?: L;
-}): ObjectTypeMarker<P, L> {
+}): ObjectTypeMarker<P, L, N> {
   const marker = new ObjectTypeMarker(
     opts.apiName,
     opts.displayName,
@@ -47,7 +48,7 @@ export function objectType<P extends Record<string, PropIRHolder>, L extends Rec
     new Map(Object.entries(opts.links ?? {})),
   );
   registerObjectType(marker);
-  return marker as unknown as ObjectTypeMarker<P, L>;
+  return marker as unknown as ObjectTypeMarker<P, L, N>;
 }
 
 /** 链接名 → 目标类型标记（遍历类型推断用） */

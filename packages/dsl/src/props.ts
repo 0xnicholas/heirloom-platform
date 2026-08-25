@@ -131,8 +131,8 @@ export class StringProp<R extends boolean = false, D extends boolean = false>
   }
 }
 
-/** integer / float / decimal：range / unique / array */
-export class NumberProp<T extends string, R extends boolean = false, D extends boolean = false>
+/** integer / float / decimal：range / unique / array（integer/float 值域 = number；decimal = JSON 字符串编码） */
+export class NumberProp<T, R extends boolean = false, D extends boolean = false>
   extends PropIRHolder
   implements PhantomAxes<T, R, D, T>
 {
@@ -327,7 +327,7 @@ export class ArrayProp<E, R extends boolean = false, D extends boolean = false>
 }
 
 export type StringArrayProp<R extends boolean, D extends boolean> = ArrayProp<string, R, D>;
-export type NumberArrayProp<T extends string, R extends boolean, D extends boolean> = ArrayProp<T, R, D>;
+export type NumberArrayProp<T, R extends boolean, D extends boolean> = ArrayProp<T, R, D>;
 export type EnumArrayProp<V extends string, R extends boolean, D extends boolean> = ArrayProp<V, R, D>;
 export type PlainArrayProp<T, R extends boolean, D extends boolean> = ArrayProp<T, R, D>;
 export type StructArrayProp<S, R extends boolean, D extends boolean> = ArrayProp<S, R, D>;
@@ -381,8 +381,8 @@ function ir(type: string): PropIR {
 export const prop = {
   string: () => new StringProp(ir("string")),
   boolean: () => new PlainProp<boolean>(ir("boolean")),
-  integer: () => new NumberProp<"number">(ir("integer")),
-  float: () => new NumberProp<"number">(ir("float")),
+  integer: () => new NumberProp<number>(ir("integer")),
+  float: () => new NumberProp<number>(ir("float")),
   /** 任意精度十进制；TS/API 值域 = 字符串（JSON 字符串编码，spec 10 §3） */
   decimal: () => new NumberProp<string>(ir("decimal")),
   date: () => new PlainProp<string>(ir("date")),

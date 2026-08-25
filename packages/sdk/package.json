@@ -1,0 +1,36 @@
+{
+  "name": "@heirloom/sdk",
+  "version": "1.0.0",
+  "description": "Heirloom TS SDK — typed REST client compiled from ontology source (phantom-type projection; spec 30 §1/§3)",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "pnpm --filter @heirloom/dsl build && tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json --noEmit",
+    "test": "vitest run && tsc -p tsconfig.test.json --noEmit"
+  },
+  "dependencies": {
+    "@heirloom/dsl": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4",
+    "@heirloom/example-ontology": "workspace:*",
+    "@heirloom/engine": "workspace:*",
+    "@heirloom/server": "workspace:*",
+    "pg": "^8.16.0",
+    "@types/pg": "^8.15.0"
+  }
+}

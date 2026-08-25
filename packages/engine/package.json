@@ -1,6 +1,6 @@
 {
   "name": "@heirloom/engine",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Heirloom engine — compiler + transaction coordinator on a single Postgres (spec 40/60): system-schema migrations, ontology push pipeline, DDL generation",
   "license": "Apache-2.0",
   "type": "module",

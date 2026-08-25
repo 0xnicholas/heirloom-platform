@@ -28,17 +28,18 @@ export interface LinkIR {
   status: Status;
 }
 
-/** 链接标记：幻影携带目标类型，供 linked() 正向遍历类型推断 */
-export class LinkMarker<T = any> {
+/** 链接标记：幻影携带目标类型与基数，供 linked()/include 遍历类型推断 */
+export class LinkMarker<T = any, C extends Cardinality = Cardinality> {
   declare readonly __hlTargetT?: T;
+  declare readonly __hlCardT?: C;
   constructor(public readonly __ir: LinkIR) {}
 }
 
-function linkDef<T>(cardinality: Cardinality, target: () => T, opts: LinkOpts = {}): LinkMarker<T> {
+function linkDef<T, C extends Cardinality>(cardinality: C, target: () => T, opts: LinkOpts = {}): LinkMarker<T, C> {
   if (typeof target !== "function") {
     throw new Error("链接目标必须为 thunk（如 () => Employee）——前向/自引用一致性（spec 10 §6 外形三）");
   }
-  return new LinkMarker<T>({
+  return new LinkMarker<T, C>({
     cardinality,
     targetThunk: target,
     reverse: opts.reverse,
@@ -50,8 +51,8 @@ function linkDef<T>(cardinality: Cardinality, target: () => T, opts: LinkOpts = 
 }
 
 export const link = {
-  oneToOne: <T>(target: () => T, opts?: LinkOpts): LinkMarker<T> => linkDef("one-to-one", target, opts),
-  oneToMany: <T>(target: () => T, opts?: LinkOpts): LinkMarker<T> => linkDef("one-to-many", target, opts),
-  manyToOne: <T>(target: () => T, opts?: LinkOpts): LinkMarker<T> => linkDef("many-to-one", target, opts),
-  manyToMany: <T>(target: () => T, opts?: LinkOpts): LinkMarker<T> => linkDef("many-to-many", target, opts),
+  oneToOne: <T>(target: () => T, opts?: LinkOpts): LinkMarker<T, "one-to-one"> => linkDef("one-to-one", target, opts),
+  oneToMany: <T>(target: () => T, opts?: LinkOpts): LinkMarker<T, "one-to-many"> => linkDef("one-to-many", target, opts),
+  manyToOne: <T>(target: () => T, opts?: LinkOpts): LinkMarker<T, "many-to-one"> => linkDef("many-to-one", target, opts),
+  manyToMany: <T>(target: () => T, opts?: LinkOpts): LinkMarker<T, "many-to-many"> => linkDef("many-to-many", target, opts),
 };

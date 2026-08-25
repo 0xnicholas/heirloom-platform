@@ -1,6 +1,6 @@
 {
   "name": "@heirloom/dsl",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Heirloom ontology DSL — objectType/structType/link/action/queryFn builders, registry, definition JSON materialization (spec 10/20/60)",
   "license": "Apache-2.0",
   "type": "module",

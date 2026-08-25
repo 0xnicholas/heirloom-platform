@@ -19,7 +19,7 @@
 - 故事需要的安全面素材（主体、授权、PAT）在场景层补充，不改本体语言面。已落定：S3 行级谓词切分用**本类型 enum 属性**（`employee.status`，非反规范化属性）——谓词仅限本类型属性的毛刺就此闭合（[50](50-security.md) §6）。
 - 已知毛刺：见上行（已落定）。
 
-## 故事清单（S0–S11，#14 决议）
+## 故事清单（S0–S12，#14 决议 + S12）
 
 | # | 故事 | 锚定决议点 | 落章 |
 |---|---|---|---|
@@ -35,8 +35,9 @@
 | S9 | 查询包：嵌套过滤+一跳链接过滤+keyset+count+include 2 跳；queryFn 花名册 | ADR-0002 + ADR-0008（query 端点形状） | 30/40 |
 | S10 | 演化小步：加属性再 push，变更分类学落点 | ADR-0007（三档矩阵+联动校验） | 60 |
 | S11 | 审计与安全日志查询：管理面只读端点、过滤 | ADR-0003/0004 + ADR-0008（admin 端点形状） | 30/50 |
+| S12 | TS SDK：本体模块幻影直推类型面（filter/sort/include/invoke 参数静态检查）+ revision 对账 + 真实 HTTP 冒烟 | ADR-0008 决议 1（SDK 同源编译）+ ADR-0009（幻影直推而非 codegen） | 30 |
 
-## 故事叙事（S0–S11，资料性）
+## 故事叙事（S0–S12，资料性）
 
 冲突规则：叙事与正文各章冲突时，**以各章为准**（#14 决议）。示例本体 apiName 全部取自冻结文件（§ 示例本体）。
 
@@ -164,6 +165,19 @@ GET /v1/admin/security-log?code=WHITELIST_DENIED&after=…
 2. 安全日志：S6 两拒各一条、S0 起无效 token 条目——与审计分立（50 §10）。
 3. 非超管调任一 → 403 `ADMIN_FORBIDDEN` + 落安全日志。
 
+### S12 TS SDK（30）
+
+```ts
+const sdk = createSdk({ url, token, ontology: await import("./ontology.js") });
+await sdk.assertSynced(); // 期望态 ↔ 生效态对账
+sdk.objects.employee.query({ filter: { status: { eq: "active" } }, count: true });
+sdk.actions["hire-employee"].invoke({ employeeNo: "E1", name: "张三", department: deptId });
+```
+
+1. **类型直推（编译期）**：对象形状/过滤算子封闭集（镜像 40 §6 矩阵）/排序键/include 按基数定型/invoke 参数（ref = UUID 输入）全部静态检查；反例（未知属性、decimal contains、枚举外取值、超 3 排序键）在编译期拒绝。自链接 thunk `(): any` 的遍历与反向链接 include → v1 弱类型（运行时可解析，类型不覆盖）。
+2. **revision 对账**：`assertSynced()` 物化本地期望态与 `GET /v1/meta/ontology` 生效态规范化比对；一致 → 返回 revision，漂移 → 带首差路径与出路（先 `heirloom ontology apply`）。
+3. **HTTP 冒烟**：query（keyset 翻页/count）/get（If-Match 409/include 挂载）/action invoke/函数 invoke 走真实 socket。
+
 ## 覆盖矩阵（规范性）
 
 | 决议点 | 锚定故事 | 状态 |
@@ -176,6 +190,7 @@ GET /v1/admin/security-log?code=WHITELIST_DENIED&after=…
 | ADR-0006 语言与运行时（环境性前提） | S0 | ✓ |
 | #12 TS DSL 外形 | 示例本体即反应物（S1/S4/S7 全体） | ✓ |
 | #6 本体定义与演化 | S1、S10 | ✓ |
-| #10 API 与逻辑接口 | S3、S4、S9、S11 编码面 | ✓ |
+| #10 API 与逻辑接口 | S3、S4、S9、S11 编码面；S12 SDK 面 | ✓ |
+| ADR-0009 SDK 类型层 = 幻影直推 | S12 | ✓ |
 
 （故事叙事见上，资料性；冲突以各章为准。）

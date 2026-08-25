@@ -2,7 +2,7 @@
 
 Self-hostable ontology platform: define your domain as code with a **TypeScript DSL**, get a governed read/write REST API, actions, and entity-level RBAC on top of a single Postgres.
 
-> Implementation of the [Heirloom spec](./docs/spec) (spec 01–90). The spec is the authority; this repo is the build. **v1 complete** — all milestones M1–M7 landed, acceptance scenarios S0–S11 green end-to-end over real HTTP.
+> Implementation of the [Heirloom spec](./docs/spec) (spec 01–90). The spec is the authority; this repo is the build. **v1 complete** — all milestones M1–M8 landed, acceptance scenarios S0–S12 green end-to-end over real HTTP.
 >
 > Spec, [ADRs](./docs/adr), glossary ([CONTEXT.md](./CONTEXT.md)), [workbench spec](./docs/workbench-spec), and [legacy whitepapers](./docs/whitepapers) are maintained in-repo (merged from the archived `heirloom-pro` spec repo; historical wayfinder ticket/branch links still point there).
 
@@ -16,7 +16,7 @@ Self-hostable ontology platform: define your domain as code with a **TypeScript 
 
 ## Status
 
-Milestone plan (scenario-anchored, spec 80 S0–S11) — **all green**:
+Milestone plan (scenario-anchored, spec 80 S0–S12) — **all green**:
 
 - [x] **M1** — `@heirloom/dsl`: builders, registry, definition JSON materialization + frozen example ontology fixture
 - [x] **M2** — engine core: system-schema migrations (advisory lock + migrate-only), push pipeline (diff → 3-tier classification → transactional DDL → revision/no-op) — S1/S10 green on real PG
@@ -25,8 +25,9 @@ Milestone plan (scenario-anchored, spec 80 S0–S11) — **all green**:
 - [x] **M5** — security: PAT lifecycle (hlk_, sha256-at-rest, instant revoke), admin bootstrap + isAdmin short-circuit, read grants (type-level + predicate w/ $ctx constants, OR-union, DENY-ALL silent narrowing via M3/M4 injection points), action whitelist, security log — S3/S6 green
 - [x] **M6** — online surface + CLI: Fastify server (semantic 5-endpoint + admin 9-group, unified error envelope, definition cache), engine ingest pipeline (≤1000/tx, per-op violation attribution, import-batch audit incl. rolled-back), CLI (ontology apply via esbuild eval, import CSV→typed batches, migrate-only, admin 1:1), compose dual-form + Dockerfile — S0/S2/S11 green over real HTTP
 - [x] **M7** — closeout: evolution matrix full-branch tests (enum-removal escalation, unique/range probes, required-with-default, struct shape validation, dangling-predicate linkage), static OpenAPI 3.1 export (route-parity asserted), S0–S11 e2e single-line over real HTTP, deployment runbook
+- [x] **M8** — `@heirloom/sdk`: TS SDK with phantom-type projection from ontology source (typed filter/sort/include per the spec 40 §6 op matrix, action params, ref = UUID input), `assertSynced()` revision reconciliation (expected vs effective definition, first-divergence path), CLI HTTP client promoted into the SDK package; S12 green over a real socket
 
-Test baseline: **dsl 29 + engine 119 + server 28 + cli 4 = 180 green** against a real Postgres.
+Test baseline: **dsl 29 + engine 119 + server 28 + cli 4 + sdk 6 = 186 green** against a real Postgres (SDK suite also gates compile-time negative cases via `tsc`).
 
 ## Packages
 
@@ -36,7 +37,8 @@ Test baseline: **dsl 29 + engine 119 + server 28 + cli 4 = 180 green** against a
 | `@heirloom/example-ontology` | Frozen HR/project example ontology (spec 80 fixture) |
 | `@heirloom/engine` | Migrations, push pipeline, query compiler, write channel, action executor, security, ingest — everything Postgres |
 | `@heirloom/server` | Fastify app (semantic + admin surfaces) + OpenAPI export |
-| `@heirloom/cli` | `heirloom` — ontology apply / import / migrate-only / admin |
+| `@heirloom/sdk` | TS SDK — typed REST client compiled from ontology source (phantom-type projection; `createSdk` / `assertSynced`) |
+| `@heirloom/cli` | `heirloom` — ontology apply / import / migrate-only / admin (HTTP client shared with SDK) |
 
 ## Run it
 
@@ -58,6 +60,11 @@ export HEIRLOOM_TOKEN=hlk_…   # bootstrap token, or mint one: see admin below
 
 heirloom ontology apply ./packages/example-ontology/ontology.ts
 # → 收敛完成：revision 1，{"auto":20,"dataValidation":2}
+
+# 应用侧（TS SDK，类型从本体源码直推）：
+# const sdk = createSdk({ url, token, ontology: await import("./ontology.js") });
+# await sdk.assertSynced();
+# sdk.objects.employee.query({ filter: { status: { eq: "active" } }, count: true });
 
 curl -s -H "Authorization: Bearer $HEIRLOOM_TOKEN" \
   -H 'content-type: application/json' \
